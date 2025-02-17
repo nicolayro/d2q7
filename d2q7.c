@@ -421,8 +421,8 @@ void options(int argc, char **argv)
 {
     timesteps = 40000;
     store_freq = 100;
-    H = 400;
-    W = 600;
+    H = 4000;
+    W = 6000;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
