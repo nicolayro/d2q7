@@ -1,6 +1,6 @@
 CC:=OMPI_CC=gcc-14 mpicc
 
-CFLAGS+= -std=c11 -fopenmp -Wall -Wextra -pedantic -Werror -O2
+CFLAGS+= -std=c11 -Wall -Wextra -pedantic -Werror -O2
 LDLIBS+= -lm
 
 PROCS=1
@@ -9,7 +9,7 @@ THREADS=8
 IMAGES=$(shell ls data/*.dat | sed s/data/imgs/g | sed s/\.dat/.png/g)
 
 build: d2q7.c
-	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7
+	$(CC) $^ $(CFLAGS) $(LDLIBS) -fopenmp -o d2q7
 
 run: d2q7
 	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) d2q7 -i 10000
@@ -27,3 +27,6 @@ plot:
 
 clean:
 	-rm data/*.dat imgs/*.png
+
+precision:
+	gcc precision.c ${CFLAGS} -o compare
