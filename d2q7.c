@@ -17,6 +17,8 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
+typedef float real_t;
+
 typedef enum {
     SOLID,
     WALL,
@@ -44,16 +46,16 @@ int timesteps; // Number of timesteps in simulation
 int store_freq; // Frequency of
 
 domain_t *lattice = NULL; // Domain geometry
-double *densities[2] = {
+real_t *densities[2] = {
     NULL,                 // Densities in current timestep
     NULL                  // Densities in next timestep
 };
-double *v = NULL;         // Velocities
-double e[DIRECTIONS][2];           // Directinal vectors
+real_t *v = NULL;         // Velocities
+real_t e[DIRECTIONS][2];           // Directinal vectors
 
-double force[2] = {
+real_t force[2] = {
     0.00, // External force in y direction
-    0.009  // External force in x direction
+    0.007  // External force in x direction
 };
 
 float *outbuf = NULL; // Output buffer (Note that this is a float)
@@ -106,9 +108,9 @@ int main(int argc, char **argv)
     init_mpi_types();
 
     lattice = malloc((local_W+2) * (local_H+2) * sizeof(domain_t));
-    densities[0] = malloc(7 * (local_W+2) * (local_H+2) * sizeof(double));
-    densities[1] = malloc(7 * (local_W+2) * (local_H+2) * sizeof(double));
-    v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(double));
+    densities[0] = malloc(7 * (local_W+2) * (local_H+2) * sizeof(real_t));
+    densities[1] = malloc(7 * (local_W+2) * (local_H+2) * sizeof(real_t));
+    v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(real_t));
     outbuf = malloc((local_H) * (local_W) * sizeof(float));
 
     init_domain();
@@ -216,14 +218,14 @@ void init_mpi_types(void)
     MPI_Type_create_subarray(2, grid_size, subgrid_size, start, MPI_ORDER_C, MPI_FLOAT, &subgrid);
     MPI_Type_commit(&subgrid);
 
-    MPI_Type_vector(local_H+2, 1, local_W+2, MPI_DOUBLE, &column);
-    MPI_Type_vector(1, local_W+2, local_W+2, MPI_DOUBLE, &row);
+    MPI_Type_vector(local_H+2, 1, local_W+2, MPI_FLOAT, &column);
+    MPI_Type_vector(1, local_W+2, local_W+2, MPI_FLOAT, &row);
 
     MPI_Type_commit(&column);
     MPI_Type_commit(&row);
 
-    MPI_Type_create_hvector(6, 1, (local_W+2)*(local_H+2)*sizeof(double), column, &columns);
-    MPI_Type_create_hvector(6, 1, (local_W+2)*(local_H+2)*sizeof(double), row, &rows);
+    MPI_Type_create_hvector(6, 1, (local_W+2)*(local_H+2)*sizeof(real_t), column, &columns);
+    MPI_Type_create_hvector(6, 1, (local_W+2)*(local_H+2)*sizeof(real_t), row, &rows);
 
     MPI_Type_commit(&columns);
     MPI_Type_commit(&rows);
@@ -311,10 +313,10 @@ void collide(void)
     #pragma omp parallel for
     for (int i = 1; i <= local_H; i++) {
         for (int j = 1; j <= local_W; j++) {
-            double rho      = 0.0;  // Density
-            double ev       = 0.0;  // Dot product of e and v;
-            double N_eq     = 0.0;  // Equilibrium at i
-            double delta_N  = 0.0;  // Change
+            real_t rho      = 0.0;  // Density
+            real_t ev       = 0.0;  // Dot product of e and v;
+            real_t N_eq     = 0.0;  // Equilibrium at i
+            real_t delta_N  = 0.0;  // Change
 
             assert(LATTICE(i,j) == WALL || LATTICE(i,j) == SOLID || LATTICE(i,j) == FLUID);
 
@@ -421,8 +423,8 @@ void options(int argc, char **argv)
 {
     timesteps = 40000;
     store_freq = 100;
-    H = 4000;
-    W = 6000;
+    H = 400;
+    W = 600;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
