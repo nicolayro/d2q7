@@ -22,9 +22,6 @@ imgs/%.png: data/%.dat
 anim: images
 	ffmpeg -y -an -i imgs/%5d.png -vcodec libx264 -pix_fmt yuv420p -profile:v baseline -level 3 -r 12 vortex_shedding.mp4
 
-plot:
-	ls data | parallel -v A={.} ./plot.sh
-
 clean:
 	-rm data/*.dat imgs/*.png
 
