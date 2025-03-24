@@ -322,12 +322,6 @@ void collide(void)
             real_t N_eq     = 0.0;  // Equilibrium at i
             real_t delta_N  = 0.0;  // Change
 
-            // Ignore solid sites
-            if (LATTICE(i,j) == SOLID) {
-                continue;
-            }
-
-            rho = 0.0;
             V_x(i,j) = V_y(i,j) = 0.0;
             if (LATTICE(i,j) == FLUID) {
                 for (int d = 0; d < DIRECTIONS; d++) {
@@ -341,13 +335,6 @@ void collide(void)
 
             for (int d = 0; d < DIRECTIONS; d++) {
                 // Boundary condition: Reflect of walls
-                if (LATTICE(i,j) == WALL) {
-                    if (d != 6) {
-                        D_nxt(i,j,(d+3)%6) = D_now(i,j,d);
-                    }
-                    continue;
-                }
-
                 ev = e[d][1] * V_x(i,j) + e[d][0] * V_y(i,j);
                 if (d == 6) {
                     // Rest particle
@@ -367,9 +354,19 @@ void collide(void)
                 if (cart_pos[1] * local_W + j == 1)
                     delta_N += (1.0/3.0) * force[1] * e[d][1];
 
-                D_nxt(i,j,d) = D_now(i,j,d) + delta_N;
+                switch (LATTICE(i,j)) {
+                    case FLUID:
+                        D_nxt(i,j,d) = D_now(i,j,d) + delta_N;
+                        break;
+                    case WALL:
+                        if (d != 6)
+                            D_nxt(i,j,(d+3)%6) = D_now(i,j,d);
+                        break;
+                    case SOLID:
+                        // Do nothing
+                        break;
+                }
             }
-
         }
     }
 }

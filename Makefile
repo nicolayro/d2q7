@@ -20,10 +20,11 @@ d2q7_vec: src/d2q7_vec.c
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_vec
 
 run:
-	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7
+	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7_vec
 
 setup:
-	mkdir
+	mkdir data
+	mkdir imgs
 
 images: ${IMAGES}
 
@@ -39,5 +40,5 @@ clean:
 purge:
 	-rm data/*.dat imgs/*.png d2q7 vortex_shedding.mp4 compare
 
-precision:
-	gcc precision.c -Wall -Wextra -pedantic -o compare
+precision: src/precision.c
+	gcc $^ -Wall -Wextra -pedantic -o compare
