@@ -1,5 +1,4 @@
 #define _XOPEN_SOURCE 600
-#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -17,7 +16,8 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
-typedef float real_t;
+typedef double real_t;
+#define MPI_REAL_T MPI_DOUBLE
 
 typedef enum {
     SOLID,
@@ -55,7 +55,7 @@ real_t e[DIRECTIONS][2];           // Directinal vectors
 
 real_t force[2] = {
     0.00, // External force in y direction
-    0.007  // External force in x direction
+    0.007,  // External force in x direction
 };
 
 float *outbuf = NULL; // Output buffer (Note that this is a float)
@@ -166,6 +166,7 @@ int main(int argc, char **argv)
     MPI_Reduce(&stream_total, &r_stream_total, 1, MPI_DOUBLE, MPI_SUM, MPI_RANK_ROOT, comm_cart);
 
     if (rank == MPI_RANK_ROOT) {
+        /*
         printf("==== Results ====\n");
         printf("Height            %d\n", H);
         printf("Width             %d\n", W);
@@ -176,6 +177,10 @@ int main(int argc, char **argv)
         printf("    Collision     %lf\n", r_collide_total/comm_size);
         printf("    Exchange      %lf\n", r_exchange_total/comm_size);
         printf("    Streaming     %lf\n", r_stream_total/comm_size);
+        */
+
+        printf("%.4lf %.4lf %.4lf %.4lf\n", (r_end_time - r_start_time)/comm_size,
+            r_collide_total/comm_size, r_exchange_total/comm_size, r_stream_total/comm_size);
     }
 
     save(timesteps/store_freq);
@@ -215,11 +220,11 @@ void init_mpi_types(void)
     int subgrid_size[2] = { local_H, local_W };
     int grid_size[2] = { H, W };
 
-    MPI_Type_create_subarray(2, grid_size, subgrid_size, start, MPI_ORDER_C, MPI_FLOAT, &subgrid);
+    MPI_Type_create_subarray(2, grid_size, subgrid_size, start, MPI_ORDER_C, MPI_REAL_T, &subgrid);
     MPI_Type_commit(&subgrid);
 
-    MPI_Type_vector(local_H+2, 1, local_W+2, MPI_FLOAT, &column);
-    MPI_Type_vector(1, local_W+2, local_W+2, MPI_FLOAT, &row);
+    MPI_Type_vector(local_H+2, 1, local_W+2, MPI_REAL_T, &column);
+    MPI_Type_vector(1, local_W+2, local_W+2, MPI_REAL_T, &row);
 
     MPI_Type_commit(&column);
     MPI_Type_commit(&row);
@@ -237,7 +242,6 @@ void init_domain(void)
     int center[2] = { H/2, W/4 };
 
     int local_offset[2] = { cart_pos[0] * local_H, cart_pos[1] * local_W };
-    printf("[%d] %d, %d\n", rank, local_offset[1], local_offset[0]);
 
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j <= local_W+2; j++) {
@@ -318,13 +322,10 @@ void collide(void)
             real_t N_eq     = 0.0;  // Equilibrium at i
             real_t delta_N  = 0.0;  // Change
 
-            assert(LATTICE(i,j) == WALL || LATTICE(i,j) == SOLID || LATTICE(i,j) == FLUID);
-
             // Ignore solid sites
             if (LATTICE(i,j) == SOLID) {
                 continue;
             }
-
             rho = 0.0;
             V_x(i,j) = V_y(i,j) = 0.0;
             if (LATTICE(i,j) == FLUID) {
@@ -333,7 +334,6 @@ void collide(void)
                     V_y(i,j) += e[d][0] * D_now(i,j,d);
                     V_x(i,j) += e[d][1] * D_now(i,j,d);
                 }
-                assert(rho != 0.0);
                 V_y(i,j) /= rho;
                 V_x(i,j) /= rho;
             }

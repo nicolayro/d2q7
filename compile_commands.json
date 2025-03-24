@@ -9,13 +9,13 @@
       "-pedantic",
       "-Werror",
       "-O2",
-      "-I/opt/homebrew/Cellar/open-mpi/5.0.6/include",
+      "-I/opt/homebrew/Cellar/open-mpi/5.0.7/include",
       "-o",
       "d2q7",
       "d2q7.c"
     ],
-    "directory": "/Users/nicolayro/ntnu/master/lbm",
-    "file": "/Users/nicolayro/ntnu/master/lbm/d2q7.c",
-    "output": "/Users/nicolayro/ntnu/master/lbm/d2q7"
+    "directory": "/Users/nicolayro/ntnu/master/d2q7",
+    "file": "/Users/nicolayro/ntnu/master/d2q7/d2q7.c",
+    "output": "/Users/nicolayro/ntnu/master/d2q7/d2q7"
   }
 ]

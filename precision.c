@@ -30,11 +30,19 @@ int main(int argc, char **argv)
     read_items(&items1, size, filename1);
     read_items(&items2, size, filename2);
 
+    item_t max = 0.0;
+    item_t min = 1.0;
     float tot1 = 0.0;
     float tot2 = 0.0;
     for (size_t i = 0; i < (size_t) size; i++) {
         tot1 += items1[i];
         tot2 += items2[i];
+
+        if (items1[i] > max) {
+            max = items1[i];
+        } else if(items1[i] < min && items1[i] > 0.0) {
+            min = items1[i];
+        }
     }
 
     float diff = tot2 - tot1;
@@ -42,6 +50,8 @@ int main(int argc, char **argv)
     printf("Total 2: %f\n", tot2);
     printf("Diff:    %f\n", diff);
     printf("Percent: %f%%\n", (diff/tot1)*100);
+    printf("Max:     %f\n", max);
+    printf("Max:     %f\n", min);
 
     free(items1);
     free(items2);
