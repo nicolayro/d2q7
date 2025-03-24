@@ -1,3 +1,5 @@
+PROGNAME:=lbm
+
 CC:=OMPI_CC=gcc-14 mpicc
 
 CFLAGS+= -std=c11 -Wall -Wextra -pedantic -Werror -fopenmp -O2
@@ -6,13 +8,22 @@ LDLIBS+= -lm
 PROCS=1
 THREADS=8
 
-IMAGES=$(shell ls data/*.dat | sed s/data/imgs/g | sed s/\.dat/.png/g)
+TARGETS= d2q7 d2q7_vec
+IMAGES=$(shell ls data/*.dat 2> /dev/null| sed s/data/imgs/g | sed s/\.dat/.png/g)
 
-build: d2q7.c
+all: $(TARGETS)
+
+d2q7: src/d2q7.c
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7
 
-run: d2q7
+d2q7_vec: src/d2q7_vec.c
+	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_vec
+
+run:
 	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7
+
+setup:
+	mkdir
 
 images: ${IMAGES}
 
@@ -24,6 +35,9 @@ anim: images
 
 clean:
 	-rm data/*.dat imgs/*.png
+
+purge:
+	-rm data/*.dat imgs/*.png d2q7 vortex_shedding.mp4 compare
 
 precision:
 	gcc precision.c -Wall -Wextra -pedantic -o compare
