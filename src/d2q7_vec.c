@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 600
+#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,7 +11,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define SILENT 0
+#define SILENT 1
 
 #define DIRECTIONS 7
 #define ALPHA 0.5
@@ -18,6 +19,7 @@
 
 typedef double real_t;
 #define MPI_REAL_T MPI_DOUBLE
+#define VLEN 8
 
 typedef enum {
     SOLID,
@@ -312,59 +314,85 @@ void border_exchange(void) {
             comm_cart, MPI_STATUS_IGNORE);
 }
 
+void debug(void)
+{
+    printf("---------");
+    for (int i = 1; i <= local_H; i++) {
+        for (int j = 1; j <= local_W; j++) {
+            printf("%.2f ", (float) sqrt(V_y(i,j)*V_y(i,j) + V_x(i,j)*V_x(i,j)));
+        }
+        printf("\n");
+    }
+}
+
 void collide(void)
 {
     #pragma omp parallel for
     for (int i = 1; i <= local_H; i++) {
-        for (int j = 1; j <= local_W; j++) {
-            real_t rho      = 0.0;  // Density
-            real_t ev       = 0.0;  // Dot product of e and v;
-            real_t N_eq     = 0.0;  // Equilibrium at i
-            real_t delta_N  = 0.0;  // Change
+        for (int j = 1; j <= local_W; j+= VLEN) {
+            real_t rho[VLEN]      = {0.0};  // Density
+            real_t ev[VLEN]       = {0.0};  // Dot product of e and v;
+            real_t N_eq[VLEN]     = {0.0};  // Equilibrium at i
+            real_t delta_N[VLEN]  = {0.0};  // Change
 
-            V_x(i,j) = V_y(i,j) = 0.0;
-            if (LATTICE(i,j) == FLUID) {
-                for (int d = 0; d < DIRECTIONS; d++) {
-                    rho += D_now(i,j,d);
-                    V_y(i,j) += e[d][0] * D_now(i,j,d);
-                    V_x(i,j) += e[d][1] * D_now(i,j,d);
+            for (int a = 0; a < VLEN; a++) {
+                V_x(i,j+a) = V_y(i,j+a) = 0.0;
+            }
+            for (int d = 0; d < DIRECTIONS; d++) {
+                for (int a = 0; a < VLEN; a++) {
+                    rho[a] += D_now(i,j+a,d);
+                    V_y(i,j+a) += e[d][0] * D_now(i,j+a,d);
+                    V_x(i,j+a) += e[d][1] * D_now(i,j+a,d);
                 }
-                V_y(i,j) /= rho;
-                V_x(i,j) /= rho;
+            }
+            for (int a = 0; a < VLEN; a++) {
+                V_y(i,j+a) /= rho[a];
+                V_x(i,j+a) /= rho[a];
             }
 
             for (int d = 0; d < DIRECTIONS; d++) {
-                // Boundary condition: Reflect of walls
-                ev = e[d][1] * V_x(i,j) + e[d][0] * V_y(i,j);
-                if (d == 6) {
-                    // Rest particle
-                    N_eq = ALPHA*rho - rho*(V_x(i,j)*V_x(i,j) + V_y(i,j)*V_y(i,j));
-                } else {
-                    // Outgoing vectors
-                    N_eq =
-                        // F_eq_i
-                        rho*(1.0-ALPHA)/6.0
-                        + rho/3.0*ev
-                        + (2.0*rho/3.0)*ev*ev
-                        - rho/6.0*(V_x(i,j)*V_x(i,j)+V_y(i,j)*V_y(i,j));
+                for (int a = 0; a < VLEN; a++) {
+                    // Boundary condition: Reflect of walls
+                    ev[a] = e[d][1] * V_x(i,j+a) + e[d][0] * V_y(i,j+a);
                 }
+                for (int a = 0; a < VLEN; a++) {
+                    if (d == 6) {
+                        // Rest particle
+                        N_eq[a] = ALPHA*rho[a] - rho[a] *
+                            (V_x(i,j+a)*V_x(i,j+a) + V_y(i,j+a)*V_y(i,j+a));
+                    } else {
+                        // Outgoing vectors
+                        N_eq[a] =
+                            // F_eq_i
+                            rho[a]*(1.0-ALPHA)/6.0
+                            + rho[a]/3.0*ev[a]
+                            + (2.0*rho[a]/3.0)*ev[a]*ev[a]
+                            - rho[a]/6.0*(V_x(i,j+a)*V_x(i,j+a) + V_y(i,j+a)*V_y(i,j+a));
+                    }
+                }
+                for (int a = 0; a < VLEN; a++) {
+                    delta_N[a] = -(D_now(i,j+a,d)-N_eq[a])/TAU;
 
-                delta_N = -(D_now(i,j,d)-N_eq)/TAU;
-
-                if (cart_pos[1] * local_W + j == 1)
-                    delta_N += (1.0/3.0) * force[1] * e[d][1];
-
-                switch (LATTICE(i,j)) {
-                    case FLUID:
-                        D_nxt(i,j,d) = D_now(i,j,d) + delta_N;
-                        break;
-                    case WALL:
-                        if (d != 6)
-                            D_nxt(i,j,(d+3)%6) = D_now(i,j,d);
-                        break;
-                    case SOLID:
-                        // Do nothing
-                        break;
+                }
+                for (int a = 0; a < VLEN; a++) {
+                    if (cart_pos[1] * local_W + j + a == 1)
+                        delta_N[a] += (1.0/3.0) * force[1] * e[d][1];
+                }
+                for (int a = 0; a < VLEN; a++) {
+                    switch (LATTICE(i,j+a)) {
+                        case FLUID:
+                            D_nxt(i,j+a,d) = D_now(i,j+a,d) + delta_N[a];
+                            break;
+                        case WALL:
+                            if (d != 6)
+                                D_nxt(i,j+a,(d+3)%6) = D_now(i,j+a,d);
+                            break;
+                        case SOLID:
+                            // Do nothing
+                            break;
+                        default:
+                            assert(false && "Big error");
+                    }
                 }
             }
         }
@@ -394,7 +422,9 @@ void save(int iteration)
     // Caculate absolute velocity (without halo)
     for (int i = 1; i <= local_H; i++) {
         for (int j = 1; j <= local_W; j++) {
-            OUTBUF((i-1),(j-1)) = (float) sqrt(V_y(i,j)*V_y(i,j) + V_x(i,j)*V_x(i,j));
+            OUTBUF((i-1),(j-1)) = LATTICE(i,j) == FLUID
+                ? (float) sqrt(V_y(i,j)*V_y(i,j) + V_x(i,j)*V_x(i,j))
+                : 0;
         }
     }
 
@@ -419,10 +449,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 40000;
-    store_freq = 100;
-    H = 400;
-    W = 600;
+    timesteps = 1000;
+    store_freq = 1;
+    H = 1600;
+    W = 2400;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
@@ -432,7 +462,6 @@ void options(int argc, char **argv)
                 break;
             case 's':
                 store_freq = strtol(optarg, NULL, 10);
-                printf("store_freq=%d\n", store_freq);
                 break;
             case 'h':
                 printf("Usage: d2q7 [-i iter]\n");

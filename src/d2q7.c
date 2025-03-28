@@ -421,10 +421,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 40000;
-    store_freq = 100;
-    H = 400;
-    W = 600;
+    timesteps = 1000;
+    store_freq = 1;
+    H = 1600;
+    W = 2400;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
