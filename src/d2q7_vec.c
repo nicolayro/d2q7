@@ -11,7 +11,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define SILENT 1
+#define SILENT 0
 
 #define DIRECTIONS 7
 #define REST DIRECTIONS-1
@@ -376,7 +376,7 @@ void collide(void)
                         case FLUID:
                             V_x(i,j+a) = vx[a];
                             V_y(i,j+a) = vy[a];
-                            D_nxt(i,j+a,d) = delta_N[a];
+                            D_nxt(i,j+a,d) = D_now(i,j+a,d) + delta_N[a];
                             break;
                         case WALL:
                             // Boundary condition: Reflect of walls
@@ -411,7 +411,7 @@ void collide(void)
                     case FLUID:
                         V_x(i,j+a) = vx[a];
                         V_y(i,j+a) = vy[a];
-                        D_nxt(i,j+a,REST) =  (D_now(i,j+a,REST)-N_eq[a])/TAU;
+                        D_nxt(i,j+a,REST) = D_now(i,j+a,REST) + delta_N[a];
                         break;
                     case WALL:
                         // Do nothing
@@ -477,10 +477,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 100;
-    store_freq = 1;
-    H = 4000;
-    W = 6000;
+    timesteps = 40000;
+    store_freq = 100;
+    H = 400;
+    W = 600;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
