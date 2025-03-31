@@ -14,6 +14,8 @@
 #define SILENT 1
 
 #define DIRECTIONS 7
+#define REST DIRECTIONS-1
+
 #define ALPHA 0.5
 #define TAU 1.0
 
@@ -349,44 +351,36 @@ void collide(void)
                 vx[a] /= rho[a];
             }
 
-            for (int d = 0; d < DIRECTIONS; d++) {
+            // Outgoing velocities
+            for (int d = 0; d < DIRECTIONS-1; d++) {
                 for (int a = 0; a < VLEN; a++) {
-                    // Boundary condition: Reflect of walls
                     ev[a] = e[d][1] * vx[a] + e[d][0] * vy[a];
                 }
                 for (int a = 0; a < VLEN; a++) {
-                    if (d == 6) {
-                        // Rest particle
-                        N_eq[a] = ALPHA*rho[a] - rho[a] *
-                            (vx[a]*vx[a] + vy[a]*vy[a]);
-                    } else {
-                        // Outgoing vectors
-                        N_eq[a] =
-                            // F_eq_i
-                            rho[a]*(1.0-ALPHA)/6.0
-                            + rho[a]/3.0*ev[a]
-                            + (2.0*rho[a]/3.0)*ev[a]*ev[a]
-                            - rho[a]/6.0*(vx[a]*vx[a] + vy[a]*vy[a]);
-                    }
+                    N_eq[a] =
+                        // F_eq_i
+                        rho[a]*(1.0-ALPHA)/6.0
+                        + rho[a]/3.0*ev[a]
+                        + (2.0*rho[a]/3.0)*ev[a]*ev[a]
+                        - rho[a]/6.0*(vx[a]*vx[a] + vy[a]*vy[a]);
                 }
                 for (int a = 0; a < VLEN; a++) {
                     delta_N[a] = -(D_now(i,j+a,d)-N_eq[a])/TAU;
-
                 }
                 for (int a = 0; a < VLEN; a++) {
+                    // This is not actually vectorized so we group these
                     if (cart_pos[1] * local_W + j + a == 1)
                         delta_N[a] += (1.0/3.0) * force[1] * e[d][1];
-                }
-                for (int a = 0; a < VLEN; a++) {
+
                     switch (LATTICE(i,j+a)) {
                         case FLUID:
                             V_x(i,j+a) = vx[a];
                             V_y(i,j+a) = vy[a];
-                            D_nxt(i,j+a,d) =  (D_now(i,j+a,d)-N_eq[a])/TAU;
+                            D_nxt(i,j+a,d) = delta_N[a];
                             break;
                         case WALL:
-                            if (d != 6)
-                                D_nxt(i,j+a,(d+3)%6) = D_now(i,j+a,d);
+                            // Boundary condition: Reflect of walls
+                            D_nxt(i,j+a,(d+3)%6) = D_now(i,j+a,d);
                             break;
                         case SOLID:
                             // Do nothing
@@ -394,6 +388,39 @@ void collide(void)
                         default:
                             assert(false && "Big error");
                     }
+                }
+            }
+
+            // Rest particle
+            for (int a = 0; a < VLEN; a++) {
+                ev[a] = e[REST][1] * vx[a] + e[REST][0] * vy[a];
+            }
+            for (int a = 0; a < VLEN; a++) {
+                N_eq[a] = ALPHA*rho[a] - rho[a] * (vx[a]*vx[a] + vy[a]*vy[a]);
+            }
+            for (int a = 0; a < VLEN; a++) {
+                delta_N[a] = -(D_now(i,j+a,REST)-N_eq[a])/TAU;
+
+            }
+            for (int a = 0; a < VLEN; a++) {
+                if (cart_pos[1] * local_W + j + a == 1)
+                    delta_N[a] += (1.0/3.0) * force[1] * e[REST][1];
+            }
+            for (int a = 0; a < VLEN; a++) {
+                switch (LATTICE(i,j+a)) {
+                    case FLUID:
+                        V_x(i,j+a) = vx[a];
+                        V_y(i,j+a) = vy[a];
+                        D_nxt(i,j+a,REST) =  (D_now(i,j+a,REST)-N_eq[a])/TAU;
+                        break;
+                    case WALL:
+                        // Do nothing
+                        break;
+                    case SOLID:
+                        // Do nothing
+                        break;
+                    default:
+                        assert(false && "Big error");
                 }
             }
         }
