@@ -10,7 +10,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define SILENT 0
+#define SILENT 1
 
 #define DIRECTIONS 7
 #define ALPHA 0.5

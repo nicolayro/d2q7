@@ -2,7 +2,7 @@ PROGNAME:=lbm
 
 CC:=OMPI_CC=gcc-14 mpicc
 
-CFLAGS+= -std=c11 -Wall -Wextra -pedantic -Werror -fopenmp -O2
+CFLAGS+= -std=c11 -Wall -Wextra -pedantic -Werror -fopenmp -O3
 LDLIBS+= -lm
 
 PROCS=1

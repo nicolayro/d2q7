@@ -335,31 +335,30 @@ void collide(void)
             real_t N_eq[VLEN]     = {0.0};  // Equilibrium at i
             real_t delta_N[VLEN]  = {0.0};  // Change
 
-            for (int a = 0; a < VLEN; a++) {
-                V_x(i,j+a) = V_y(i,j+a) = 0.0;
-            }
+            real_t vx[VLEN] = {0.0};
+            real_t vy[VLEN] = {0.0};
             for (int d = 0; d < DIRECTIONS; d++) {
                 for (int a = 0; a < VLEN; a++) {
                     rho[a] += D_now(i,j+a,d);
-                    V_y(i,j+a) += e[d][0] * D_now(i,j+a,d);
-                    V_x(i,j+a) += e[d][1] * D_now(i,j+a,d);
+                    vy[a] += e[d][0] * D_now(i,j+a,d);
+                    vx[a] += e[d][1] * D_now(i,j+a,d);
                 }
             }
             for (int a = 0; a < VLEN; a++) {
-                V_y(i,j+a) /= rho[a];
-                V_x(i,j+a) /= rho[a];
+                vy[a] /= rho[a];
+                vx[a] /= rho[a];
             }
 
             for (int d = 0; d < DIRECTIONS; d++) {
                 for (int a = 0; a < VLEN; a++) {
                     // Boundary condition: Reflect of walls
-                    ev[a] = e[d][1] * V_x(i,j+a) + e[d][0] * V_y(i,j+a);
+                    ev[a] = e[d][1] * vx[a] + e[d][0] * vy[a];
                 }
                 for (int a = 0; a < VLEN; a++) {
                     if (d == 6) {
                         // Rest particle
                         N_eq[a] = ALPHA*rho[a] - rho[a] *
-                            (V_x(i,j+a)*V_x(i,j+a) + V_y(i,j+a)*V_y(i,j+a));
+                            (vx[a]*vx[a] + vy[a]*vy[a]);
                     } else {
                         // Outgoing vectors
                         N_eq[a] =
@@ -367,7 +366,7 @@ void collide(void)
                             rho[a]*(1.0-ALPHA)/6.0
                             + rho[a]/3.0*ev[a]
                             + (2.0*rho[a]/3.0)*ev[a]*ev[a]
-                            - rho[a]/6.0*(V_x(i,j+a)*V_x(i,j+a) + V_y(i,j+a)*V_y(i,j+a));
+                            - rho[a]/6.0*(vx[a]*vx[a] + vy[a]*vy[a]);
                     }
                 }
                 for (int a = 0; a < VLEN; a++) {
@@ -381,7 +380,9 @@ void collide(void)
                 for (int a = 0; a < VLEN; a++) {
                     switch (LATTICE(i,j+a)) {
                         case FLUID:
-                            D_nxt(i,j+a,d) = D_now(i,j+a,d) + delta_N[a];
+                            V_x(i,j+a) = vx[a];
+                            V_y(i,j+a) = vy[a];
+                            D_nxt(i,j+a,d) =  (D_now(i,j+a,d)-N_eq[a])/TAU;
                             break;
                         case WALL:
                             if (d != 6)
@@ -449,10 +450,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 1000;
+    timesteps = 100;
     store_freq = 1;
-    H = 1600;
-    W = 2400;
+    H = 4000;
+    W = 6000;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
