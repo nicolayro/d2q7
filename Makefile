@@ -8,7 +8,7 @@ LDLIBS+= -lm
 PROCS=1
 THREADS=8
 
-TARGETS= d2q7 d2q7_vec
+TARGETS= d2q7 d2q7_vec d2q7_opt
 IMAGES=$(shell ls data/*.dat 2> /dev/null| sed s/data/imgs/g | sed s/\.dat/.png/g)
 
 all: $(TARGETS)
@@ -18,6 +18,9 @@ d2q7: src/d2q7.c
 
 d2q7_vec: src/d2q7_vec.c
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_vec
+
+d2q7_opt: src/d2q7_opt.c
+	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_opt
 
 run:
 	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7_vec

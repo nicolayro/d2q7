@@ -16,8 +16,8 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
-typedef double real_t;
-#define MPI_REAL_T MPI_DOUBLE
+typedef float real_t;
+#define MPI_REAL_T MPI_FLOAT
 
 typedef enum {
     SOLID,
@@ -421,7 +421,7 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 1000;
+    timesteps = 100;
     store_freq = 1;
     H = 1600;
     W = 2400;

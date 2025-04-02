@@ -19,9 +19,8 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
-typedef double real_t;
-#define MPI_REAL_T MPI_DOUBLE
-#define VLEN 8
+typedef float real_t;
+#define MPI_REAL_T MPI_FLOAT
 
 typedef enum {
     SOLID,
@@ -331,90 +330,49 @@ void collide(void)
 {
     #pragma omp parallel for
     for (int i = 1; i <= local_H; i++) {
-        for (int j = 1; j <= local_W; j+= VLEN) {
-            real_t rho[VLEN]      = {0.0};  // Density
-            real_t ev[VLEN]       = {0.0};  // Dot product of e and v;
-            real_t N_eq[VLEN]     = {0.0};  // Equilibrium at i
-            real_t delta_N[VLEN]  = {0.0};  // Change
+        for (int j = 1; j <= local_W; j++) {
+            real_t rho      = 0.0;  // Density
+            real_t ev       = 0.0;  // Dot product of e and v;
+            real_t N_eq     = 0.0;  // Equilibrium at i
+            real_t delta_N  = 0.0;  // Change
 
-            real_t vx[VLEN]       = {0.0};  // Velocities in x-dir
-            real_t vy[VLEN]       = {0.0};  // Velocities in y-dir
+            real_t vx       = {0.0};  // Velocities in x-dir
+            real_t vy       = {0.0};  // Velocities in y-dir
             for (int d = 0; d < DIRECTIONS; d++) {
-                for (int a = 0; a < VLEN; a++) {
-                    rho[a] += D_now(i,j+a,d);
-                    vy[a] += e[d][0] * D_now(i,j+a,d);
-                    vx[a] += e[d][1] * D_now(i,j+a,d);
-                }
+                rho += D_now(i,j,d);
+                vy += e[d][0] * D_now(i,j,d);
+                vx += e[d][1] * D_now(i,j,d);
             }
-            for (int a = 0; a < VLEN; a++) {
-                vy[a] /= rho[a];
-                vx[a] /= rho[a];
-            }
+
+            vy /= rho;
+            vx /= rho;
 
             // Outgoing velocities
             for (int d = 0; d < DIRECTIONS-1; d++) {
-                for (int a = 0; a < VLEN; a++) {
-                    ev[a] = e[d][1] * vx[a] + e[d][0] * vy[a];
-                }
-                for (int a = 0; a < VLEN; a++) {
-                    N_eq[a] =
-                        // F_eq_i
-                        rho[a]*(1.0-ALPHA)/6.0
-                        + rho[a]/3.0*ev[a]
-                        + (2.0*rho[a]/3.0)*ev[a]*ev[a]
-                        - rho[a]/6.0*(vx[a]*vx[a] + vy[a]*vy[a]);
-                }
-                for (int a = 0; a < VLEN; a++) {
-                    delta_N[a] = -(D_now(i,j+a,d)-N_eq[a])/TAU;
-                }
-                for (int a = 0; a < VLEN; a++) {
-                    // Add external force
-                    // This is not actually vectorized so we group these
-                    if (cart_pos[1] * local_W + j + a == 1)
-                        delta_N[a] += (1.0/3.0) * force[1] * e[d][1];
+                ev = e[d][1] * vx + e[d][0] * vy;
+                N_eq =
+                    // F_eq_i
+                    rho*(1.0-ALPHA)/6.0
+                    + rho/3.0*ev
+                    + (2.0*rho/3.0)*ev*ev
+                    - rho/6.0*(vx*vx + vy*vy);
 
-                    switch (LATTICE(i,j+a)) {
-                        case FLUID:
-                            V_x(i,j+a) = vx[a];
-                            V_y(i,j+a) = vy[a];
-                            D_nxt(i,j+a,d) = D_now(i,j+a,d) + delta_N[a];
-                            break;
-                        case WALL:
-                            // Boundary condition: Reflect of walls
-                            D_nxt(i,j+a,(d+3)%6) = D_now(i,j+a,d);
-                            break;
-                        case SOLID:
-                            // Do nothing
-                            break;
-                        default:
-                            assert(false && "Big error");
-                    }
-                }
-            }
+                delta_N = -(D_now(i,j,d)-N_eq)/TAU;
 
-            // Rest particle
-            for (int a = 0; a < VLEN; a++) {
-                ev[a] = e[REST][1] * vx[a] + e[REST][0] * vy[a];
-            }
-            for (int a = 0; a < VLEN; a++) {
-                N_eq[a] = ALPHA*rho[a] - rho[a] * (vx[a]*vx[a] + vy[a]*vy[a]);
-            }
-            for (int a = 0; a < VLEN; a++) {
-                delta_N[a] = -(D_now(i,j+a,REST)-N_eq[a])/TAU;
-
-            }
-            for (int a = 0; a < VLEN; a++) {
+                // Add external force
                 // This is not actually vectorized so we group these
-                if (cart_pos[1] * local_W + j + a == 1)
-                    delta_N[a] += (1.0/3.0) * force[1] * e[REST][1];
-                switch (LATTICE(i,j+a)) {
+                if (cart_pos[1] * local_W + j == 1)
+                    delta_N += (1.0/3.0) * force[1] * e[d][1];
+
+                switch (LATTICE(i,j)) {
                     case FLUID:
-                        V_x(i,j+a) = vx[a];
-                        V_y(i,j+a) = vy[a];
-                        D_nxt(i,j+a,REST) = D_now(i,j+a,REST) + delta_N[a];
+                        V_x(i,j) = vx;
+                        V_y(i,j) = vy;
+                        D_nxt(i,j,d) = D_now(i,j,d) + delta_N;
                         break;
                     case WALL:
-                        // Do nothing
+                        // Boundary condition: Reflect of walls
+                        D_nxt(i,j,(d+3)%6) = D_now(i,j,d);
                         break;
                     case SOLID:
                         // Do nothing
@@ -422,6 +380,31 @@ void collide(void)
                     default:
                         assert(false && "Big error");
                 }
+            }
+
+            // Rest particle
+            ev = e[REST][1] * vx + e[REST][0] * vy;
+            N_eq = ALPHA*rho - rho * (vx*vx + vy*vy);
+            delta_N = -(D_now(i,j,REST)-N_eq)/TAU;
+
+            // This is not actually vectorized so we group these
+            if (cart_pos[1] * local_W + j == 1)
+                delta_N += (1.0/3.0) * force[1] * e[REST][1];
+
+            switch (LATTICE(i,j)) {
+                case FLUID:
+                    V_x(i,j) = vx;
+                    V_y(i,j) = vy;
+                    D_nxt(i,j,REST) = D_now(i,j,REST) + delta_N;
+                    break;
+                case WALL:
+                    // Do nothing
+                    break;
+                case SOLID:
+                    // Do nothing
+                    break;
+                default:
+                    assert(false && "Big error");
             }
         }
     }
