@@ -342,13 +342,27 @@ void collide(void)
             for (int d = 0; d < DIRECTIONS; d++) {
                 for (int a = 0; a < VLEN; a++) {
                     rho[a] += D_now(i,j+a,d);
+                }
+                for (int a = 0; a < VLEN; a++) {
                     vy[a] += e[d][0] * D_now(i,j+a,d);
+                }
+                for (int a = 0; a < VLEN; a++) {
                     vx[a] += e[d][1] * D_now(i,j+a,d);
                 }
             }
             for (int a = 0; a < VLEN; a++) {
                 vy[a] /= rho[a];
+            }
+            for (int a = 0; a < VLEN; a++) {
                 vx[a] /= rho[a];
+            }
+
+            // Save
+            for (int a = 0; a < VLEN; a++) {
+                V_x(i,j+a) = vx[a];
+            }
+            for (int a = 0; a < VLEN; a++) {
+                V_y(i,j+a) = vy[a];
             }
 
             // Outgoing velocities
@@ -375,8 +389,7 @@ void collide(void)
 
                     switch (LATTICE(i,j+a)) {
                         case FLUID:
-                            V_x(i,j+a) = vx[a];
-                            V_y(i,j+a) = vy[a];
+                            // TODO Check what can be moved to save
                             D_nxt(i,j+a,d) = D_now(i,j+a,d) + delta_N[a];
                             break;
                         case WALL:
@@ -409,8 +422,6 @@ void collide(void)
                     delta_N[a] += (1.0/3.0) * force[1] * e[REST][1];
                 switch (LATTICE(i,j+a)) {
                     case FLUID:
-                        V_x(i,j+a) = vx[a];
-                        V_y(i,j+a) = vy[a];
                         D_nxt(i,j+a,REST) = D_now(i,j+a,REST) + delta_N[a];
                         break;
                     case WALL:

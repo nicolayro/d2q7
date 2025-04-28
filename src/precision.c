@@ -49,9 +49,10 @@ int main(int argc, char **argv)
     printf("Total 1: %f\n", tot1);
     printf("Total 2: %f\n", tot2);
     printf("Diff:    %f\n", diff);
-    printf("Percent: %f%%\n", (diff/tot1)*100);
+    printf("Percent: %f%%\n", (diff/tot2)*100);
+    printf("\n");
     printf("Max:     %f\n", max);
-    printf("Max:     %f\n", min);
+    printf("Min:     %f\n", min);
 
     free(items1);
     free(items2);
