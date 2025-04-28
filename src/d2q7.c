@@ -10,7 +10,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define SILENT 1
+#define SILENT 0
 
 #define DIRECTIONS 7
 #define ALPHA 0.5
@@ -25,12 +25,17 @@ typedef enum {
     FLUID
 } domain_t;
 
+typedef enum {
+    CYLINDER,
+    POISEUILLE,
+} geometry_t;
+
 int OFFSETS[2][DIRECTIONS][2] = {
-    { {0,1}, {1,1}, { 1,0}, {0,-1}, {-1, 0}, {-1,1}, {0,0} },  /* Odd rows */
-    { {0,1}, {1,0}, {1,-1}, {0,-1}, {-1,-1}, {-1,0}, {0,0} } /* Even rows */
+    { {0,1}, {1,1}, { 1,0}, {0,-1}, {-1, 0}, {-1,1}, {0,0} }, // Odd rows
+    { {0,1}, {1,0}, {1,-1}, {0,-1}, {-1,-1}, {-1,0}, {0,0} }  // Even rows
 };
 
-void init_domain(void);     // Initialize domain geometry from input file
+void init_domain(geometry_t geometry); // Initialize domain geometry
 void init_mpi_cart_grid(void);  // Initialize MPI Cartesian grid
 void init_mpi_types(void);      // Initialize MPI Custom datatypes
 void scatter_domain(void);
@@ -113,7 +118,7 @@ int main(int argc, char **argv)
     v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(real_t));
     outbuf = malloc((local_H) * (local_W) * sizeof(float));
 
-    init_domain();
+    init_domain(POISEUILLE);
 
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j < local_W+2; j++) {
@@ -236,7 +241,25 @@ void init_mpi_types(void)
     MPI_Type_commit(&rows);
 }
 
-void init_domain(void)
+void init_domain_cylinder(void);
+void init_domain_poiseuille(void);
+
+void init_domain(geometry_t geometry)
+{
+    switch (geometry) {
+        case CYLINDER:
+            init_domain_cylinder();
+            break;
+        case POISEUILLE:
+            init_domain_poiseuille();
+            break;
+        default:
+            fprintf(stderr, "ERROR: Unsupported geometry %d\n", geometry);
+            exit(EXIT_FAILURE);
+    }
+}
+
+void init_domain_cylinder(void)
 {
     float radius = H / 20.0;
     int center[2] = { H/2, W/4 };
@@ -286,9 +309,30 @@ void init_domain(void)
             }
         }
     }
-
 }
 
+void init_domain_poiseuille(void)
+{
+    // Fill domain with fluid
+    for (int i = 0; i < local_H+2; i++) {
+        for (int j = 0; j <= local_W+2; j++) {
+            LATTICE(i,j) = FLUID;
+        }
+    }
+    // Fill top wall
+    if (cart_pos[0] == 0) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(1, j) = WALL;
+        }
+    }
+
+    // Fill bottom wall
+    if (cart_pos[0] == dims[0] - 1) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(local_H, j) = WALL;
+        }
+    }
+}
 
 void border_exchange(void) {
     // Send north
@@ -421,10 +465,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 100;
-    store_freq = 1;
-    H = 1600;
-    W = 2400;
+    timesteps = 40000;
+    store_freq = 100;
+    H = 400;
+    W = 600;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {

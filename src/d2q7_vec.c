@@ -11,7 +11,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define SILENT 1
+#define SILENT 0
 
 #define DIRECTIONS 7
 #define REST DIRECTIONS-1
@@ -414,7 +414,6 @@ void collide(void)
             }
             for (int a = 0; a < VLEN; a++) {
                 delta_N[a] = -(D_now(i,j+a,REST)-N_eq[a])/TAU;
-
             }
             for (int a = 0; a < VLEN; a++) {
                 // This is not actually vectorized so we group these
@@ -488,10 +487,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 100;
+    timesteps = 10000;
     store_freq = 100;
-    H = 1600;
-    W = 2400;
+    H = 400;
+    W = 600;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
