@@ -21,7 +21,7 @@
 
 typedef double real_t;
 #define MPI_REAL_T MPI_DOUBLE
-#define VLEN 8
+#define VLEN 1
 
 typedef enum {
     SOLID,
@@ -29,12 +29,18 @@ typedef enum {
     FLUID
 } domain_t;
 
+typedef enum {
+    CYLINDER,
+    POISEUILLE,
+    MOFFATT
+} geometry_t;
+
 int OFFSETS[2][DIRECTIONS][2] = {
     { {0,1}, {1,1}, { 1,0}, {0,-1}, {-1, 0}, {-1,1}, {0,0} },  /* Odd rows */
     { {0,1}, {1,0}, {1,-1}, {0,-1}, {-1,-1}, {-1,0}, {0,0} } /* Even rows */
 };
 
-void init_domain(void);     // Initialize domain geometry from input file
+void init_domain(geometry_t);     // Initialize domain geometry
 void init_mpi_cart_grid(void);  // Initialize MPI Cartesian grid
 void init_mpi_types(void);      // Initialize MPI Custom datatypes
 void scatter_domain(void);
@@ -59,7 +65,7 @@ real_t e[DIRECTIONS][2];           // Directinal vectors
 
 real_t force[2] = {
     0.00, // External force in y direction
-    0.007,  // External force in x direction
+    0.001,  // External force in x direction
 };
 
 float *outbuf = NULL; // Output buffer (Note that this is a float)
@@ -117,7 +123,7 @@ int main(int argc, char **argv)
     v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(real_t));
     outbuf = malloc((local_H) * (local_W) * sizeof(float));
 
-    init_domain();
+    init_domain(MOFFATT);
 
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j < local_W+2; j++) {
@@ -240,7 +246,29 @@ void init_mpi_types(void)
     MPI_Type_commit(&rows);
 }
 
-void init_domain(void)
+void init_domain_cylinder(void);
+void init_domain_poiseuille(void);
+void init_domain_moffatt(void);
+
+void init_domain(geometry_t geometry)
+{
+    switch (geometry) {
+        case CYLINDER:
+            init_domain_cylinder();
+            break;
+        case POISEUILLE:
+            init_domain_poiseuille();
+            break;
+        case MOFFATT:
+            init_domain_moffatt();
+            break;
+        default:
+            fprintf(stderr, "ERROR: Unsupported geometry %d\n", geometry);
+            exit(EXIT_FAILURE);
+    }
+}
+
+void init_domain_cylinder(void)
 {
     float radius = H / 20.0;
     int center[2] = { H/2, W/4 };
@@ -290,7 +318,59 @@ void init_domain(void)
             }
         }
     }
+}
 
+void init_domain_poiseuille(void)
+{
+    // Fill domain with fluid
+    for (int i = 0; i < local_H+2; i++) {
+        for (int j = 0; j <= local_W+2; j++) {
+            LATTICE(i,j) = FLUID;
+        }
+    }
+    // Fill top wall
+    if (cart_pos[0] == 0) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(1, j) = WALL;
+        }
+    }
+
+    // Fill bottom wall
+    if (cart_pos[0] == dims[0] - 1) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(local_H, j) = WALL;
+        }
+    }
+}
+
+void init_domain_moffatt(void)
+{
+    // Fill domain with fluid
+    for (int i = 0; i < local_H+2; i++) {
+        for (int j = 0; j <= local_W+2; j++) {
+            LATTICE(i,j) = FLUID;
+        }
+    }
+
+    // Fill bottom wall
+    if (cart_pos[0] == dims[0] - 1) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(local_H, j) = WALL;
+        }
+    }
+
+    int local_offset[2] = { cart_pos[0] * local_H, cart_pos[1] * local_W };
+    // Fill top section
+    int channel_height = H / 4.0;
+    for (int j = 0 ; j < (local_W+2)/2; j++) {
+        int channel_top = channel_height;
+        if (j+local_offset[1] > W/4)
+            channel_top += 3 * (j+local_offset[1] - W/4);
+        for (int i = local_H+1; i > channel_top; i--) {
+            LATTICE(i, j) = WALL;
+            LATTICE(i, local_W+2-j-1) = WALL;
+        }
+    }
 }
 
 
@@ -489,7 +569,7 @@ void options(int argc, char **argv)
 {
     timesteps = 10000;
     store_freq = 100;
-    H = 400;
+    H = 600;
     W = 600;
 
     int c;

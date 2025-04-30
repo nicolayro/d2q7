@@ -28,6 +28,7 @@ typedef enum {
 typedef enum {
     CYLINDER,
     POISEUILLE,
+    MOFFATT
 } geometry_t;
 
 int OFFSETS[2][DIRECTIONS][2] = {
@@ -60,7 +61,7 @@ real_t e[DIRECTIONS][2];           // Directinal vectors
 
 real_t force[2] = {
     0.00, // External force in y direction
-    0.007,  // External force in x direction
+    0.001,  // External force in x direction
 };
 
 float *outbuf = NULL; // Output buffer (Note that this is a float)
@@ -118,7 +119,7 @@ int main(int argc, char **argv)
     v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(real_t));
     outbuf = malloc((local_H) * (local_W) * sizeof(float));
 
-    init_domain(POISEUILLE);
+    init_domain(MOFFATT);
 
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j < local_W+2; j++) {
@@ -243,6 +244,7 @@ void init_mpi_types(void)
 
 void init_domain_cylinder(void);
 void init_domain_poiseuille(void);
+void init_domain_moffatt(void);
 
 void init_domain(geometry_t geometry)
 {
@@ -252,6 +254,9 @@ void init_domain(geometry_t geometry)
             break;
         case POISEUILLE:
             init_domain_poiseuille();
+            break;
+        case MOFFATT:
+            init_domain_moffatt();
             break;
         default:
             fprintf(stderr, "ERROR: Unsupported geometry %d\n", geometry);
@@ -330,6 +335,36 @@ void init_domain_poiseuille(void)
     if (cart_pos[0] == dims[0] - 1) {
         for (int j = 0 ; j < local_W+2; j++) {
             LATTICE(local_H, j) = WALL;
+        }
+    }
+}
+
+void init_domain_moffatt(void)
+{
+    // Fill domain with fluid
+    for (int i = 0; i < local_H+2; i++) {
+        for (int j = 0; j <= local_W+2; j++) {
+            LATTICE(i,j) = FLUID;
+        }
+    }
+
+    // Fill bottom wall
+    if (cart_pos[0] == dims[0] - 1) {
+        for (int j = 0 ; j < local_W+2; j++) {
+            LATTICE(local_H, j) = WALL;
+        }
+    }
+
+    int local_offset[2] = { cart_pos[0] * local_H, cart_pos[1] * local_W };
+    // Fill top section
+    int channel_height = H / 4.0;
+    for (int j = 0 ; j < (local_W+2)/2; j++) {
+        int channel_top = channel_height;
+        if (j+local_offset[1] > W/4)
+            channel_top += 3 * (j+local_offset[1] - W/4);
+        for (int i = local_H+1; i > channel_top; i--) {
+            LATTICE(i, j) = WALL;
+            LATTICE(i, local_W+2-j-1) = WALL;
         }
     }
 }
@@ -465,9 +500,9 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 40000;
+    timesteps = 10000;
     store_freq = 100;
-    H = 400;
+    H = 600;
     W = 600;
 
     int c;
