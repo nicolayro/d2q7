@@ -30,7 +30,7 @@ typedef enum {
 } domain_t;
 
 typedef enum {
-    CYLINDER,
+    KARMAN,
     POISEUILLE,
     MOFFATT
 } geometry_t;
@@ -51,9 +51,10 @@ void stream(void);          // Streaming step
 void save(int iteration);       // Store results
 void options(int argc, char **argv); // Command line arguments
 
-int W, H;      // Width and height of domain
-int timesteps; // Number of timesteps in simulation
-int store_freq; // Frequency of
+geometry_t geometry; // Domain geometry
+int W, H;            // Width and height of domain
+int timesteps;       // Number of timesteps in simulation
+int store_freq;      // Frequency of
 
 domain_t *lattice = NULL; // Domain geometry
 real_t *densities[2] = {
@@ -123,7 +124,7 @@ int main(int argc, char **argv)
     v = malloc(2 * (local_H+2) * (local_W+2) * sizeof(real_t));
     outbuf = malloc((local_H) * (local_W) * sizeof(float));
 
-    init_domain(MOFFATT);
+    init_domain(geometry);
 
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j < local_W+2; j++) {
@@ -246,18 +247,18 @@ void init_mpi_types(void)
     MPI_Type_commit(&rows);
 }
 
-void init_domain_cylinder(void);
 void init_domain_poiseuille(void);
+void init_domain_karman(void);
 void init_domain_moffatt(void);
 
 void init_domain(geometry_t geometry)
 {
     switch (geometry) {
-        case CYLINDER:
-            init_domain_cylinder();
-            break;
         case POISEUILLE:
             init_domain_poiseuille();
+            break;
+        case KARMAN:
+            init_domain_karman();
             break;
         case MOFFATT:
             init_domain_moffatt();
@@ -268,7 +269,7 @@ void init_domain(geometry_t geometry)
     }
 }
 
-void init_domain_cylinder(void)
+void init_domain_karman(void)
 {
     float radius = H / 20.0;
     int center[2] = { H/2, W/4 };
@@ -573,7 +574,7 @@ void options(int argc, char **argv)
     W = WIDTH;
 
     int c;
-    while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
+    while ((c = getopt(argc, argv, "i:s:g:h")) != -1 ) {
         switch (c) {
             case 'i':
                 timesteps = strtol(optarg, NULL, 10);
@@ -581,11 +582,23 @@ void options(int argc, char **argv)
             case 's':
                 store_freq = strtol(optarg, NULL, 10);
                 break;
+            case 'g':
+                geometry = strtol(optarg, NULL, 10);
+                if (geometry < 1 || geometry > 3) {
+                    fprintf(stderr, "ERROR: Illegal geometry '%s'\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                geometry--; // Offset to 0 index
+                break;
             case 'h':
                 printf("Usage: d2q7 [-i iter]\n");
                 printf("  options\n");
                 printf("    -i iter  number of iterations (default 40000)\n");
                 printf("    -s freq  store frequency      (default 100)\n");
+                printf("    -g geometry  geoemetry            (default 1 - KARMAN)\n");
+                printf("       1  POISEUILLE\n");
+                printf("       2  KARMAN\n");
+                printf("       3  MOFFATT\n");
                 printf("    -h       display this message\n");
                 exit(EXIT_SUCCESS);
                 break;

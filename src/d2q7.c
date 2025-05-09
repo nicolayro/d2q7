@@ -46,10 +46,10 @@ void stream(void);          // Streaming step
 void save(int iteration);       // Store results
 void options(int argc, char **argv); // Command line arguments
 
-geometry_t geometry;// Domain geometry
-int W, H;           // Width and height of domain
-int timesteps;      // Number of timesteps in simulation
-int store_freq;     // Frequency of
+geometry_t geometry; // Domain geometry
+int W, H;            // Width and height of domain
+int timesteps;       // Number of timesteps in simulation
+int store_freq;      // Frequency of
 
 
 domain_t *lattice = NULL; // Domain
