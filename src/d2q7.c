@@ -16,8 +16,8 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
-typedef float real_t;
-#define MPI_REAL_T MPI_FLOAT
+typedef double real_t;
+#define MPI_REAL_T MPI_DOUBLE
 
 typedef enum {
     SOLID,
@@ -272,7 +272,7 @@ void init_domain_cylinder(void)
     int local_offset[2] = { cart_pos[0] * local_H, cart_pos[1] * local_W };
 
     for (int i = 0; i < local_H+2; i++) {
-        for (int j = 0; j <= local_W+2; j++) {
+        for (int j = 0; j < local_W+2; j++) {
             bool in_circle = radius >
                 sqrt((i-1+local_offset[0]-center[0]) * (i-1+local_offset[0]-center[0]) +
                      (j-1+local_offset[1]-center[1]) * (j-1+local_offset[1]-center[1]));
@@ -356,14 +356,13 @@ void init_domain_moffatt(void)
     }
 
     int local_offset[2] = { cart_pos[0] * local_H, cart_pos[1] * local_W };
-    // Fill top section
     int channel_height = H / 4.0;
     for (int j = 0 ; j < (local_W+2)/2; j++) {
         int channel_top = channel_height;
         if (j+local_offset[1] > W/4)
             channel_top += 3 * (j+local_offset[1] - W/4);
         for (int i = local_H+1; i > channel_top; i--) {
-            LATTICE(i, j) = WALL;
+            LATTICE(i, j) = SOLID;
             LATTICE(i, local_W+2-j-1) = WALL;
         }
     }
@@ -500,10 +499,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 10000;
+    timesteps = 200000;
     store_freq = 100;
-    H = 600;
-    W = 600;
+    H = 1800;
+    W = 2400;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {
