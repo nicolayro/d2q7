@@ -3,4 +3,4 @@ typedef double real_t;
 
 #define HEIGHT 1800
 #define WIDTH 2400
-#define TIMESTEPS 9600
+#define TIMESTEPS 100
