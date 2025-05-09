@@ -11,6 +11,8 @@
 #include <mpi.h>
 #include <omp.h>
 
+#include "domain.h"
+
 #define SILENT 0
 
 #define DIRECTIONS 7
@@ -19,8 +21,6 @@
 #define ALPHA 0.5
 #define TAU 1.0
 
-typedef float real_t;
-#define MPI_REAL_T MPI_FLOAT
 #define VLEN 8
 
 typedef enum {
@@ -567,10 +567,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 96000;
+    timesteps = TIMESTEPS;
     store_freq = 100;
-    H = 1800;
-    W = 2400;
+    H = HEIGHT;
+    W = WIDTH;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {

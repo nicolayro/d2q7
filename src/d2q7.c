@@ -10,14 +10,13 @@
 #include <mpi.h>
 #include <omp.h>
 
+#include "domain.h"
+
 #define SILENT 0
 
 #define DIRECTIONS 7
 #define ALPHA 0.5
 #define TAU 1.0
-
-typedef double real_t;
-#define MPI_REAL_T MPI_DOUBLE
 
 typedef enum {
     SOLID,
@@ -363,7 +362,22 @@ void init_domain_moffatt(void)
             channel_top += 3 * (j+local_offset[1] - W/4);
         for (int i = local_H+1; i > channel_top; i--) {
             LATTICE(i, j) = SOLID;
-            LATTICE(i, local_W+2-j-1) = WALL;
+            LATTICE(i, local_W+2-j-1) = SOLID;
+        }
+    }
+
+    // Set walls
+    for (int i = 1; i <= local_H; i++) {
+        for (int j = 1; j <= local_W; j++) {
+            if (LATTICE(i,j) == SOLID) {
+                for (int d = 0; d < DIRECTIONS-1; d++) {
+                    int ni = (i + OFFSETS[i%2][d][0]+H)%H;
+                    int nj = (j + OFFSETS[i%2][d][1]+W)%W;
+
+                    if (LATTICE(ni, nj) == FLUID)
+                        LATTICE(i,j) = WALL;
+                }
+            }
         }
     }
 }
@@ -499,10 +513,10 @@ void save(int iteration)
 
 void options(int argc, char **argv)
 {
-    timesteps = 200000;
+    timesteps = TIMESTEPS;
     store_freq = 100;
-    H = 1800;
-    W = 2400;
+    H = HEIGHT;
+    W = WIDTH;
 
     int c;
     while ((c = getopt(argc, argv, "i:s:h")) != -1 ) {

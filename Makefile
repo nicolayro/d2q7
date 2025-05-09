@@ -13,17 +13,17 @@ IMAGES=$(shell ls data/*.dat 2> /dev/null| sed s/data/imgs/g | sed s/\.dat/.png/
 
 all: $(TARGETS)
 
-d2q7: src/d2q7.c
+d2q7: src/d2q7.c src/domain.h
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7
 
-d2q7_vec: src/d2q7_vec.c
+d2q7_vec: src/d2q7_vec.c src/domain.h
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_vec
 
 d2q7_opt: src/d2q7_opt.c
 	$(CC) $^ $(CFLAGS) $(LDLIBS) -o d2q7_opt
 
 run:
-	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7_vec
+	OMP_NUM_THREADS=$(THREADS) mpirun -np $(PROCS) ./d2q7
 
 setup:
 	mkdir data
@@ -32,7 +32,7 @@ setup:
 images: ${IMAGES}
 
 imgs/%.png: data/%.dat
-	echo "set term png size 1200,800; set output \"imgs/$*.png\"; set view 0,0,1; set cbrange [0:0.6]; set xrange[0:600]; set yrange[0:400]; set palette defined (0 \"black\",12 \"cyan\", 16\"white\"); plot \"data/$*.dat\" binary array=600x400 format=\"%f\" with image" | gnuplot -
+	echo "set term png size 1200,800; set output \"imgs/$*.png\"; set logscale zcb; set view 0,0,1; set cbrange[0.00000001:0.1]; set xrange[0:2400]; set yrange[0:1800]; splot \"data/$*.dat\" binary array=2400x1800 format=\"%f\" with pm3d" | gnuplot -
 
 anim: images
 	ffmpeg -y -an -i imgs/%5d.png -vcodec libx264 -pix_fmt yuv420p -profile:v baseline -level 3 -r 12 vortex_shedding.mp4
