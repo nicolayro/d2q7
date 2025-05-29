@@ -27,7 +27,8 @@ typedef enum {
 typedef enum {
     KARMAN,
     POISEUILLE,
-    MOFFATT
+    MOFFATT,
+    CUSTOM
 } geometry_t;
 
 int OFFSETS[2][DIRECTIONS][2] = {
@@ -47,6 +48,7 @@ void save(int iteration);       // Store results
 void options(int argc, char **argv); // Command line arguments
 
 geometry_t geometry; // Domain geometry
+int fill;            // Filling degree of custom domain
 int W, H;            // Width and height of domain
 int timesteps;       // Number of timesteps in simulation
 int store_freq;      // Frequency of
@@ -246,6 +248,7 @@ void init_mpi_types(void)
 void init_domain_poiseuille(void);
 void init_domain_karman(void);
 void init_domain_moffatt(void);
+void init_domain_custom(void);
 
 void init_domain(geometry_t geometry)
 {
@@ -258,6 +261,9 @@ void init_domain(geometry_t geometry)
             break;
         case MOFFATT:
             init_domain_moffatt();
+            break;
+        case CUSTOM:
+            init_domain_custom();
             break;
         default:
             fprintf(stderr, "ERROR: Unsupported geometry %d\n", geometry);
@@ -384,6 +390,51 @@ void init_domain_moffatt(void)
     }
 }
 
+void init_domain_custom(void)
+{
+    if (fill < 0 || fill > 100) {
+        fprintf(stderr, "ERROR: Invalid filling degree '%d'\n", fill);
+        exit(EXIT_FAILURE);
+    }
+
+    // Fill domain with solids
+    for (int i = 0; i < local_H+2; i++) {
+        for (int j = 0; j < local_W+2; j++) {
+            LATTICE(i,j) = SOLID;
+        }
+    }
+
+    int fluid_points = (local_H-1) *(local_W-1) * (fill/100.0);
+    int points_filled = 0;
+
+    // Fill every other point until fill degree is reached. Repeat for every
+    // other point in second pass through
+    for (int i = 1; i <= local_H; i++) {
+        for (int j = 2 - (i%2); j <= local_W; j+= 2) {
+            LATTICE(i,j) = FLUID;
+            points_filled++;
+            if (points_filled >= fluid_points)
+                break;
+        }
+        if (points_filled >= fluid_points)
+            break;
+    }
+
+    for (int i = 1; i <= local_H; i++) {
+        if (points_filled >= fluid_points) {
+            break;
+        }
+        for (int j = 2 - ((i+1)%2); j <= local_W; j+= 2) {
+            LATTICE(i,j) = FLUID;
+            points_filled++;
+            if (points_filled >= fluid_points)
+                break;
+        }
+        if (points_filled >= fluid_points)
+            break;
+    }
+}
+
 void border_exchange(void) {
     // Send north
     MPI_Sendrecv(&D_nxt(1, 0, 0), 1, rows, cart_nbo[NORTH], 0,
@@ -408,7 +459,7 @@ void border_exchange(void) {
 
 void collide(void)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(guided,1)
     for (int i = 1; i <= local_H; i++) {
         for (int j = 1; j <= local_W; j++) {
             real_t rho      = 0.0;  // Density
@@ -416,6 +467,7 @@ void collide(void)
             real_t N_eq     = 0.0;  // Equilibrium at i
             real_t delta_N  = 0.0;  // Change
 
+            V_x(i,j) = V_y(i,j) = 0.0;
             // Ignore solid sites
             if (LATTICE(i,j) == SOLID) {
                 continue;
@@ -469,7 +521,7 @@ void collide(void)
 
 void stream(void)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(guided,1)
     for (int i = 0; i < local_H+2; i++) {
         for (int j = 0; j < local_W+2; j++) {
             for (int d = 0; d < DIRECTIONS; d++) {
@@ -516,13 +568,14 @@ void save(int iteration)
 void options(int argc, char **argv)
 {
     geometry = KARMAN;
+    fill = 100;
     timesteps = TIMESTEPS;
     store_freq = 100;
     H = HEIGHT;
     W = WIDTH;
 
     int c;
-    while ((c = getopt(argc, argv, "i:s:g:h")) != -1 ) {
+    while ((c = getopt(argc, argv, "i:s:g:c:h")) != -1 ) {
         switch (c) {
             case 'i':
                 timesteps = strtol(optarg, NULL, 10);
@@ -538,15 +591,24 @@ void options(int argc, char **argv)
                 }
                 geometry--; // Offset to 0 index
                 break;
+            case 'c':
+                geometry = CUSTOM;
+                fill = strtol(optarg, NULL, 10);
+                if (fill < 0 || fill > 100) {
+                    fprintf(stderr, "ERROR: Illegal fill degree '%s'\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                break;
             case 'h':
                 printf("Usage: d2q7 [-i iter]\n");
                 printf("  options\n");
                 printf("    -i iter      number of iterations (default 40000)\n");
                 printf("    -s freq      store frequency      (default 100)\n");
-                printf("    -g geometry  geoemetry            (default 1 - KARMAN)\n");
+                printf("    -g geometry  geoemetry            (default 2 - KARMAN)\n");
                 printf("       1  POISEUILLE\n");
                 printf("       2  KARMAN\n");
                 printf("       3  MOFFATT\n");
+                printf("    -c fill  fill degree          (default 100)\n");
                 printf("    -h       display this message\n");
                 exit(EXIT_SUCCESS);
                 break;
