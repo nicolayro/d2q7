@@ -459,7 +459,7 @@ void border_exchange(void) {
 
 void collide(void)
 {
-    #pragma omp parallel for schedule(guided,1)
+    #pragma omp parallel for
     for (int i = 1; i <= local_H; i++) {
         for (int j = 1; j <= local_W; j++) {
             real_t rho      = 0.0;  // Density
